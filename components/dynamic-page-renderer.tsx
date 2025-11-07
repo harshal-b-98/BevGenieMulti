@@ -3,8 +3,79 @@
 import React, { useMemo } from 'react';
 import { BevGeniePage, PageSection, sanitizePageContent } from '@/lib/ai/page-specs';
 import { COLORS } from '@/lib/constants/colors';
-import { Download, Share2, ExternalLink } from 'lucide-react';
+import { Download, Share2, ExternalLink, ArrowRight, Target, BarChart3, TrendingUp, Zap, Users, Map as MapIcon, Award, Shield } from 'lucide-react';
 import { SingleScreenSection } from '@/components/genie/single-screen-section';
+import { Footer } from '@/components/footer';
+import { DemoForm } from '@/components/genie/demo-form';
+
+/**
+ * Get section heights with 100% normalization
+ * Ensures sections always sum to exactly 100% of available space
+ */
+function getSectionHeightsFromLLM(sections: PageSection[]): Map<number, string> {
+  const heightMap = new Map<number, string>();
+
+  let totalRequested = 0;
+  let sectionsWithoutHeight = 0;
+
+  // First pass: collect LLM's explicit height requests
+  sections.forEach((section: any) => {
+    if (section.layout?.requestedHeightPercent) {
+      totalRequested += section.layout.requestedHeightPercent;
+    } else {
+      sectionsWithoutHeight++;
+    }
+  });
+
+  // Handle missing heights
+  if (sectionsWithoutHeight > 0) {
+    const remainingPercent = Math.max(0, 100 - totalRequested);
+    const perSection = remainingPercent / sectionsWithoutHeight;
+    sections.forEach((section: any) => {
+      if (!section.layout?.requestedHeightPercent) {
+        section.layout = { requestedHeightPercent: perSection };
+        totalRequested += perSection;
+      }
+    });
+  }
+
+  // 🚨 CRITICAL: Normalize to exactly 100%
+  const normalizationFactor = 100 / totalRequested;
+  console.log('📐 [HEIGHT VALIDATION]:');
+  console.log(`  Total Requested: ${totalRequested.toFixed(1)}%`);
+  console.log(`  Normalization Factor: ${normalizationFactor.toFixed(3)}x`);
+
+  let actualTotal = 0;
+  const percentValues: string[] = [];
+
+  // Second pass: assign normalized percentages
+  sections.forEach((section: any, index) => {
+    const requestedPercent = section.layout?.requestedHeightPercent || 0;
+    const normalizedPercent = Math.floor(requestedPercent * normalizationFactor);
+
+    heightMap.set(index, `${normalizedPercent}%`);
+    actualTotal += normalizedPercent;
+    percentValues.push(`${normalizedPercent}%`);
+
+    console.log(`  ${section.type}: ${requestedPercent.toFixed(1)}% → ${normalizedPercent}%`);
+  });
+
+  // Ensure exactly 100% by adjusting the largest section
+  if (actualTotal < 100) {
+    const diff = 100 - actualTotal;
+    const largestIndex = Array.from(heightMap.entries())
+      .reduce((max, curr) => parseInt(curr[1]) > parseInt(max[1]) ? curr : max)[0];
+    const currentPercent = parseInt(heightMap.get(largestIndex) || '0');
+    heightMap.set(largestIndex, `${currentPercent + diff}%`);
+    actualTotal = 100;
+  }
+
+  console.log(`  Grid Template: ${Array.from(heightMap.values()).join(' ')}`);
+  console.log(`  Total: ${actualTotal}%`);
+  console.log(`  ✅ Valid: ${actualTotal === 100}`);
+
+  return heightMap;
+}
 
 interface DynamicPageRendererProps {
   page: BevGeniePage;
@@ -20,7 +91,7 @@ interface DynamicPageRendererProps {
  *
  * Converts BevGenie page specifications (JSON) into rendered React components.
  * Supports 6 page types and 8 section types with consistent styling.
- * Automatically sanitizes content to ensure it fits on screen.
+ * Automatically sizes sections to fit within 100vh viewport.
  */
 export function DynamicPageRenderer({
   page,
@@ -30,13 +101,39 @@ export function DynamicPageRenderer({
   compact = false,
   onBackToHome,
 }: DynamicPageRendererProps) {
+  // 🚨 DEBUG: Log received page data
+  console.log('🎨 [Renderer] Received page:', {
+    type: page.type,
+    title: page.title?.substring(0, 50),
+    sectionCount: page.sections?.length || 0,
+    sectionTypes: page.sections?.map(s => s.type).join(', ') || 'none'
+  });
+
   // Sanitize content to ensure it fits on screen (safety measure)
   const sanitizedPage = useMemo(() => sanitizePageContent(page), [page]);
 
+  // Get section heights from LLM's layout decisions (not frontend calculations)
+  const sectionHeights = useMemo(() =>
+    getSectionHeightsFromLLM(sanitizedPage.sections),
+    [sanitizedPage.sections]
+  );
+
+  // Build CSS Grid template rows from calculated heights
+  const gridTemplateRows = sanitizedPage.sections
+    .map((_, idx) => sectionHeights.get(idx) || '1fr')
+    .join(' ');
+
   return (
-    <div className={`dynamic-page-renderer h-full overflow-hidden ${compact ? 'compact' : 'full'}`}>
-      {/* Render sections */}
-      <div className={`page-content h-full overflow-hidden ${compact ? 'max-w-2xl' : ''}`}>
+    <div className="h-full w-full flex flex-col overflow-hidden bg-[#0A1628]">
+      {/* Content - fills available space with grid layout */}
+      <div
+        className="flex-1 overflow-hidden"
+        style={{
+          display: 'grid',
+          gridTemplateRows,
+        }}
+      >
+        {/* Render sections in grid cells */}
         {sanitizedPage.sections.map((section, index) => (
           <SectionRenderer
             key={index}
@@ -47,49 +144,17 @@ export function DynamicPageRenderer({
           />
         ))}
       </div>
+
+      {/* Footer - fixed height at bottom */}
+      <Footer />
     </div>
   );
 }
 
 /**
- * Layout utility functions
- * Map size and visualWeight properties to Tailwind classes
- */
-function getSizeClasses(size?: 'compact' | 'medium' | 'large'): {
-  minHeight: string;
-  padding: string;
-  textScale: string;
-} {
-  switch (size) {
-    case 'compact':
-      return { minHeight: 'min-h-[25vh]', padding: 'py-8', textScale: 'scale-90' };
-    case 'large':
-      return { minHeight: 'min-h-[40vh]', padding: 'py-24', textScale: 'scale-110' };
-    case 'medium':
-    default:
-      return { minHeight: 'min-h-[30vh]', padding: 'py-16', textScale: 'scale-100' };
-  }
-}
-
-function getVisualWeightClasses(weight?: 'subtle' | 'normal' | 'prominent'): {
-  opacity: string;
-  fontScale: string;
-  shadow: string;
-} {
-  switch (weight) {
-    case 'subtle':
-      return { opacity: 'opacity-75', fontScale: 'text-sm', shadow: 'shadow-sm' };
-    case 'prominent':
-      return { opacity: 'opacity-100', fontScale: 'text-lg', shadow: 'shadow-2xl' };
-    case 'normal':
-    default:
-      return { opacity: 'opacity-90', fontScale: 'text-base', shadow: 'shadow-lg' };
-  }
-}
-
-/**
  * Section Renderer
  * Routes to appropriate section component based on section type
+ * CSS Grid handles positioning - no wrapper needed
  */
 function SectionRenderer({
   section,
@@ -102,42 +167,74 @@ function SectionRenderer({
   onNavigationClick?: (action: string, context?: any) => void;
   onBackToHome?: () => void;
 }) {
-  const sectionWithLayout = section as any;
-  const layoutProps = {
-    size: sectionWithLayout.size,
-    visualWeight: sectionWithLayout.visualWeight,
+  // Grid cell wrapper - lets grid handle sizing
+  const gridCellStyle: React.CSSProperties = {
+    overflow: 'hidden',
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
   };
 
   switch (section.type) {
     case 'single_screen':
       return (
-        <SingleScreenSection
-          headline={(section as any).headline}
-          subtitle={(section as any).subtitle}
-          insights={(section as any).insights}
-          stats={(section as any).stats}
-          visualContent={(section as any).visualContent}
-          howItWorks={(section as any).howItWorks}
-          ctas={(section as any).ctas}
-          onCTAClick={onNavigationClick}
-          onBackToHome={onBackToHome}
-        />
+        <div style={gridCellStyle}>
+          <SingleScreenSection
+            headline={(section as any).headline}
+            subtitle={(section as any).subtitle}
+            insights={(section as any).insights}
+            stats={(section as any).stats}
+            visualContent={(section as any).visualContent}
+            howItWorks={(section as any).howItWorks}
+            ctas={(section as any).ctas}
+            onCTAClick={onNavigationClick}
+            onBackToHome={onBackToHome}
+          />
+        </div>
       );
     case 'hero':
-      return <HeroSection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
+      return (
+        <div style={gridCellStyle}>
+          <HeroSection section={section} onNavigationClick={onNavigationClick} />
+        </div>
+      );
     case 'feature_grid':
-      return <FeatureGridSection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
+      return (
+        <div style={gridCellStyle}>
+          <FeatureGridSection section={section} onNavigationClick={onNavigationClick} />
+        </div>
+      );
     // Testimonial sections removed - BevGenie is a new product
     case 'comparison_table':
-      return <ComparisonTableSection section={section} {...layoutProps} />;
+      return (
+        <div style={gridCellStyle}>
+          <ComparisonTableSection section={section} />
+        </div>
+      );
     case 'cta':
-      return <CTASection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
+      return (
+        <div style={gridCellStyle}>
+          <CTASection section={section} onNavigationClick={onNavigationClick} />
+        </div>
+      );
     case 'faq':
-      return <FAQSection section={section} {...layoutProps} />;
+      return (
+        <div style={gridCellStyle}>
+          <FAQSection section={section} />
+        </div>
+      );
     case 'metrics':
-      return <MetricsSection section={section} {...layoutProps} />;
+      return (
+        <div style={gridCellStyle}>
+          <MetricsSection section={section} />
+        </div>
+      );
     case 'steps':
-      return <StepsSection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
+      return (
+        <div style={gridCellStyle}>
+          <StepsSection section={section} onNavigationClick={onNavigationClick} />
+        </div>
+      );
     default:
       return (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
@@ -149,161 +246,142 @@ function SectionRenderer({
 
 /**
  * Hero Section Component
- * Large headline with optional CTA button - Modern design with floating blur elements
+ * Premium design with dark gradient background, animated blur elements, and always-visible CTAs
  */
 function HeroSection({
   section,
   onNavigationClick,
-  size,
-  visualWeight,
 }: {
   section: any;
   onNavigationClick?: (action: string, context?: any) => void;
-  size?: 'compact' | 'medium' | 'large';
-  visualWeight?: 'subtle' | 'normal' | 'prominent';
 }) {
-  const handleCtaClick = () => {
-    if (onNavigationClick) {
-      onNavigationClick(section.ctaButton?.action || 'hero_cta_click', {
-        text: section.ctaButton?.text,
-        context: section.headline,
-      });
-    }
-  };
-
-  const handleLearnMore = () => {
-    if (onNavigationClick) {
-      onNavigationClick('learn_more', {
-        context: section.headline,
-      });
-    }
-  };
-
   // Split headline to apply gradient to last word
-  const words = section.headline.split(' ');
+  const words = section.headline?.split(' ') || [];
   const lastWord = words[words.length - 1];
   const restOfHeadline = words.slice(0, -1).join(' ');
 
-  const sizeClasses = getSizeClasses(size);
-  const weightClasses = getVisualWeightClasses(visualWeight);
-
-  // Dynamic text sizes based on size and weight
-  const headlineSize = size === 'compact' ? 'text-4xl lg:text-5xl' :
-                       size === 'large' ? 'text-6xl lg:text-7xl xl:text-8xl' :
-                       'text-5xl lg:text-6xl xl:text-7xl';
-  const subheadlineSize = size === 'compact' ? 'text-base' :
-                          size === 'large' ? 'text-2xl' :
-                          'text-xl';
-
   return (
-    <div className={`hero-section relative ${sizeClasses.minHeight} flex items-center overflow-hidden ${sizeClasses.padding} px-6 rounded-2xl ${weightClasses.opacity}`}>
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#fdf8f6] via-white to-[#ecfeff]" />
+    <div className="hero-section relative h-full flex items-center justify-center overflow-hidden px-6 md:px-12 py-6">
+      {/* Gradient background - DARK NAVY */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0A1628] via-[#1e3a5f] to-[#0A1628]" />
 
-      {/* Floating blur elements */}
-      <div className="absolute top-20 right-10 w-96 h-96 bg-[#AA6C39]/10 rounded-full blur-3xl animate-pulse-slow" />
-      <div className="absolute bottom-20 left-10 w-80 h-80 bg-[#00C8FF]/10 rounded-full blur-3xl animate-pulse-slow" />
+      {/* Floating blur elements - ANIMATED */}
+      <div className="absolute top-[10%] right-[5%] w-[30%] h-[40%] bg-cyan-500/20 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute bottom-[10%] left-[5%] w-[30%] h-[40%] bg-blue-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
 
-      <div className="max-w-4xl relative z-10">
-        <h2 className={`${headlineSize} font-bold mb-6 leading-tight`}>
-          <span style={{ color: COLORS.navy }}>{restOfHeadline} </span>
-          <span className="gradient-text">{lastWord}</span>
+      <div className="max-w-5xl relative z-10 w-full text-center space-y-4">
+        {/* Responsive Headline with gradient on last word */}
+        <h2 className="font-bold leading-tight" style={{ fontSize: 'clamp(1.75rem, 4.5vh, 3.5rem)' }}>
+          <span className="text-white">{restOfHeadline} </span>
+          <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-blue-500 bg-clip-text text-transparent">
+            {lastWord}
+          </span>
         </h2>
+
+        {/* Compact Subheadline */}
         {section.subheadline && (
-          <p className={`${subheadlineSize} leading-relaxed mb-10 max-w-3xl`} style={{ color: COLORS.darkGray }}>
+          <p className="text-slate-300 max-w-3xl mx-auto" style={{ fontSize: 'clamp(0.875rem, 2vh, 1.125rem)', lineHeight: '1.5' }}>
             {section.subheadline}
           </p>
         )}
-        {section.ctaButton && (
-          <div className="flex flex-wrap gap-4 mt-8">
-            <button
-              onClick={handleCtaClick}
-              className={`px-10 py-5 font-bold rounded-xl ${weightClasses.shadow} hover:shadow-xl hover:-translate-y-1 transition-all text-white bg-gradient-to-r from-[#AA6C39] to-[#8B5A2B]`}
-            >
-              {section.ctaButton.text}
-            </button>
-            <button
-              onClick={handleLearnMore}
-              className="px-10 py-5 font-bold rounded-xl transition-all hover:shadow-lg hover:-translate-y-1 border-2 bg-white"
-              style={{
-                borderColor: COLORS.navy,
-                color: COLORS.navy,
-              }}
-            >
-              Learn More
-            </button>
-          </div>
-        )}
+
+        {/* NO BUTTONS IN HERO - They belong in CTA section at bottom */}
       </div>
     </div>
   );
 }
 
 /**
- * Feature Grid Section Component
- * Grid of features with icons and descriptions - Modern design with gradient icons
+ * Icon mapping for common feature types
+ * Maps feature title keywords to Lucide React icons
  */
-function FeatureGridSection({
-  section,
-  onNavigationClick,
-  size,
-  visualWeight
-}: {
-  section: any;
-  onNavigationClick?: (action: string, context?: any) => void;
-  size?: 'compact' | 'medium' | 'large';
-  visualWeight?: 'subtle' | 'normal' | 'prominent';
-}) {
-  const sizeClasses = getSizeClasses(size);
-  const weightClasses = getVisualWeightClasses(visualWeight);
+const FEATURE_ICONS: Record<string, React.ReactElement> = {
+  'performance': <BarChart3 className="w-6 h-6" />,
+  'intelligence': <Zap className="w-6 h-6" />,
+  'distributor': <Users className="w-6 h-6" />,
+  'competitive': <Target className="w-6 h-6" />,
+  'gap': <TrendingUp className="w-6 h-6" />,
+  'account': <Award className="w-6 h-6" />,
+  'prioritization': <MapIcon className="w-6 h-6" />,
+  'optimization': <Shield className="w-6 h-6" />,
+  'default': <Zap className="w-6 h-6" />
+};
 
-  const titleSize = size === 'compact' ? 'text-3xl lg:text-4xl' :
-                    size === 'large' ? 'text-5xl lg:text-6xl' :
-                    'text-4xl lg:text-5xl';
+/**
+ * Get appropriate icon based on feature title
+ */
+function getFeatureIcon(title: string): React.ReactElement {
+  const lowerTitle = title.toLowerCase();
+  for (const [key, icon] of Object.entries(FEATURE_ICONS)) {
+    if (lowerTitle.includes(key)) {
+      return icon;
+    }
+  }
+  return FEATURE_ICONS.default;
+}
+
+/**
+ * Feature Grid Section Component
+ * Grid of features with icons and descriptions - Premium design with gradient cards and hover effects
+ */
+function FeatureGridSection({ section, onNavigationClick }: { section: any; onNavigationClick?: any }) {
+  // ONLY cyan/blue gradients - NO purple, NO pink
+  const gradients = [
+    'from-cyan-400 to-cyan-600',
+    'from-cyan-500 to-blue-500',
+    'from-blue-400 to-blue-600',
+    'from-cyan-600 to-blue-700'
+  ];
 
   return (
-    <div className={`feature-grid-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
+    <div className="feature-grid-section h-full flex flex-col px-6 md:px-12 py-6 overflow-hidden bg-gradient-to-br from-[#0A1628] to-[#1e3a5f]">
       {section.title && (
-        <h3 className={`${titleSize} font-bold mb-4`} style={{ color: COLORS.navy }}>
-          {section.title}
-        </h3>
-      )}
-      {section.subtitle && (
-        <p className="mb-12 text-xl leading-relaxed" style={{ color: COLORS.darkGray }}>
-          {section.subtitle}
-        </p>
+        <div className="text-center mb-6 flex-shrink-0">
+          <h3 className="text-3xl md:text-4xl font-bold mb-3 text-white">
+            {section.title}
+          </h3>
+          {section.subtitle && (
+            <p className="text-base md:text-lg text-slate-300">
+              {section.subtitle}
+            </p>
+          )}
+        </div>
       )}
 
-      <div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-        style={{
-          gridTemplateColumns: section.columns
-            ? `repeat(${Math.min(section.columns, 3)}, minmax(0, 1fr))`
-            : undefined,
-        }}
-      >
-        {section.features.map((feature: any, idx: number) => (
-          <div
-            key={idx}
-            className="feature-card p-8 rounded-2xl hover:shadow-xl transition-all hover:-translate-y-1 duration-300 border-2 group"
-            style={{
-              backgroundColor: COLORS.white,
-              borderColor: COLORS.mediumGray,
-            }}
-          >
-            {feature.icon && (
-              <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#AA6C39] to-[#00C8FF] text-white text-3xl group-hover:scale-110 transition-transform">
-                {feature.icon}
+      <div className="flex-1 grid md:grid-cols-3 gap-6 max-w-7xl mx-auto w-full overflow-hidden">
+        {section.features?.map((feature: any, idx: number) => {
+          const icon = getFeatureIcon(feature.title);
+
+          return (
+            <div
+              key={idx}
+              onClick={() => onNavigationClick?.('feature_detail', { feature: feature.title })}
+              className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/5 to-white/0 backdrop-blur-sm border border-white/10 p-6 hover:border-cyan-400/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-cyan-500/20 cursor-pointer flex flex-col"
+            >
+              {/* Gradient overlay on hover */}
+              <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 bg-gradient-to-br ${gradients[idx % 4]} transition-opacity duration-500`} />
+
+              {/* Icon with gradient */}
+              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${gradients[idx % 4]} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 flex-shrink-0 shadow-lg text-white`}>
+                {icon}
               </div>
-            )}
-            <h4 className="text-xl font-bold mb-3" style={{ color: COLORS.navy }}>
-              {feature.title}
-            </h4>
-            <p className="text-base leading-relaxed" style={{ color: COLORS.textGray }}>
-              {feature.description}
-            </p>
-          </div>
-        ))}
+
+              {/* Content */}
+              <h4 className="text-xl font-bold mb-3 text-white group-hover:text-cyan-400 transition-colors">
+                {feature.title}
+              </h4>
+              <p className="text-sm text-slate-300 leading-relaxed flex-1">
+                {feature.description}
+              </p>
+
+              {/* Hover Arrow */}
+              <div className="mt-4 flex items-center gap-2 text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-sm font-semibold">Learn More</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -375,27 +453,12 @@ function TestimonialSection({ section }: { section: any }) {
  * Comparison Table Section Component
  * Feature-by-feature comparison matrix
  */
-function ComparisonTableSection({
-  section,
-  size,
-  visualWeight
-}: {
-  section: any;
-  size?: 'compact' | 'medium' | 'large';
-  visualWeight?: 'subtle' | 'normal' | 'prominent';
-}) {
-  const sizeClasses = getSizeClasses(size);
-  const weightClasses = getVisualWeightClasses(visualWeight);
-
-  const titleSize = size === 'compact' ? 'text-xl' :
-                    size === 'large' ? 'text-3xl' :
-                    'text-2xl';
-
+function ComparisonTableSection({ section }: { section: any }) {
   return (
-    <div className={`comparison-table-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
+    <div className="comparison-table-section">
       {section.title && (
         <h3
-          className={`${titleSize} font-bold mb-6`}
+          className="text-2xl font-bold mb-6"
           style={{ color: COLORS.navy }}
         >
           {section.title}
@@ -406,7 +469,7 @@ function ComparisonTableSection({
         <table className="w-full border-collapse">
           <thead>
             <tr style={{ backgroundColor: COLORS.navy, color: COLORS.white }}>
-              {section.headers.map((header: string, idx: number) => (
+              {section.headers?.map((header: string, idx: number) => (
                 <th
                   key={idx}
                   className="px-6 py-4 text-left font-semibold border"
@@ -418,7 +481,7 @@ function ComparisonTableSection({
             </tr>
           </thead>
           <tbody>
-            {section.rows.map((row: any, rowIdx: number) => (
+            {section.rows?.map((row: any, rowIdx: number) => (
               <tr
                 key={rowIdx}
                 style={{
@@ -470,68 +533,76 @@ function ComparisonTableSection({
 
 /**
  * CTA Section Component
- * Call-to-action buttons with various actions - Modern design with dramatic gradients
+ * Premium CTA with demo form modal support
  */
 function CTASection({
   section,
   onNavigationClick,
-  size,
-  visualWeight
 }: {
   section: any;
   onNavigationClick?: (action: string, context?: any) => void;
-  size?: 'compact' | 'medium' | 'large';
-  visualWeight?: 'subtle' | 'normal' | 'prominent';
 }) {
-  const handleButtonClick = (button: any) => {
+  const [showDemoForm, setShowDemoForm] = React.useState(false);
+
+  const handleScheduleDemo = () => {
+    setShowDemoForm(true);
+  };
+
+  const handleExploreTools = () => {
     if (onNavigationClick) {
-      onNavigationClick(button.action || 'cta_click', {
-        text: button.text,
-        context: section.title,
-        isPrimary: button.primary,
+      onNavigationClick('explore_tools', {
+        source: 'cta_button',
+        context: section.title
       });
     }
   };
 
-  const sizeClasses = getSizeClasses(size);
-  const weightClasses = getVisualWeightClasses(visualWeight);
-
-  const titleSize = size === 'compact' ? 'text-3xl md:text-4xl' :
-                    size === 'large' ? 'text-5xl md:text-6xl lg:text-7xl' :
-                    'text-4xl md:text-5xl lg:text-6xl';
-
   return (
-    <div className={`cta-section relative ${sizeClasses.padding} px-6 rounded-2xl ${weightClasses.shadow} text-center text-white overflow-hidden ${weightClasses.opacity}`}>
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#AA6C39] via-[#0A1930] to-[#243b53]" />
+    <>
+      <div className="cta-section relative h-full flex items-center justify-center overflow-hidden px-6 py-3 bg-gradient-to-r from-[#0A1628] via-[#1e3a5f] to-[#0A1628]">
+        {/* Animated background elements */}
+        <div className="absolute top-[20%] right-[15%] w-[25%] h-[50%] bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-[20%] left-[15%] w-[25%] h-[50%] bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }} />
 
-      {/* Floating blur elements */}
-      <div className="absolute top-10 right-10 w-64 h-64 bg-[#00C8FF]/20 rounded-full blur-3xl animate-pulse-slow" />
-      <div className="absolute bottom-10 left-10 w-64 h-64 bg-[#AA6C39]/20 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="max-w-4xl w-full text-center space-y-3 relative z-10">
+          {/* Title */}
+          <h3 className="text-xl md:text-2xl font-bold text-white">
+            {section.title || 'Ready to Transform Your Market Strategy?'}
+          </h3>
 
-      <div className="relative z-10">
-        <h3 className={`${titleSize} font-bold mb-6`}>{section.title}</h3>
-        {section.description && (
-          <p className="text-xl mb-12 max-w-2xl mx-auto leading-relaxed opacity-90">
-            {section.description}
-          </p>
-        )}
+          {/* Description (if provided) */}
+          {section.description && (
+            <p className="text-slate-300 text-sm md:text-base max-w-2xl mx-auto">
+              {section.description}
+            </p>
+          )}
 
-        <div className="flex flex-wrap gap-4 justify-center mt-10">
-          {section.buttons.map((button: any, idx: number) => (
+          {/* CTA Buttons */}
+          <div className="flex flex-wrap gap-3 justify-center pt-1">
             <button
-              key={idx}
-              onClick={() => handleButtonClick(button)}
-              className={`px-10 py-5 font-bold rounded-xl transition-all hover:shadow-xl hover:-translate-y-1 ${
-                button.primary ? 'bg-white text-[#0A1930]' : 'border-2 border-white text-white bg-transparent'
-              }`}
+              onClick={handleScheduleDemo}
+              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 rounded-xl font-bold text-white shadow-lg hover:shadow-cyan-500/50 transition-all hover:-translate-y-1"
             >
-              {button.text}
+              Schedule Demo
             </button>
-          ))}
+            <button
+              onClick={handleExploreTools}
+              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-white border border-white/20 backdrop-blur-sm transition-all hover:-translate-y-1"
+            >
+              Explore Tools
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Demo Form Modal */}
+      {showDemoForm && (
+        <DemoForm
+          onClose={() => setShowDemoForm(false)}
+          context={section.title || 'CTA Section'}
+        />
+      )}
+    </>
   );
 }
 
@@ -539,29 +610,14 @@ function CTASection({
  * FAQ Section Component
  * Accordion-style frequently asked questions
  */
-function FAQSection({
-  section,
-  size,
-  visualWeight
-}: {
-  section: any;
-  size?: 'compact' | 'medium' | 'large';
-  visualWeight?: 'subtle' | 'normal' | 'prominent';
-}) {
+function FAQSection({ section }: { section: any }) {
   const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null);
 
-  const sizeClasses = getSizeClasses(size);
-  const weightClasses = getVisualWeightClasses(visualWeight);
-
-  const titleSize = size === 'compact' ? 'text-xl' :
-                    size === 'large' ? 'text-3xl' :
-                    'text-2xl';
-
   return (
-    <div className={`faq-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
+    <div className="faq-section">
       {section.title && (
         <h3
-          className={`${titleSize} font-bold mb-6`}
+          className="text-2xl font-bold mb-6"
           style={{ color: COLORS.navy }}
         >
           {section.title}
@@ -569,7 +625,7 @@ function FAQSection({
       )}
 
       <div className="space-y-3">
-        {section.items.map((item: any, idx: number) => (
+        {section.items?.map((item: any, idx: number) => (
           <div
             key={idx}
             className="rounded-lg overflow-hidden hover:shadow-md transition-shadow"
@@ -620,51 +676,33 @@ function FAQSection({
  * Metrics Section Component
  * Display key metrics and statistics - Modern design with gradient numbers
  */
-function MetricsSection({
-  section,
-  size,
-  visualWeight
-}: {
-  section: any;
-  size?: 'compact' | 'medium' | 'large';
-  visualWeight?: 'subtle' | 'normal' | 'prominent';
-}) {
-  const sizeClasses = getSizeClasses(size);
-  const weightClasses = getVisualWeightClasses(visualWeight);
-
-  const titleSize = size === 'compact' ? 'text-3xl lg:text-4xl' :
-                    size === 'large' ? 'text-5xl lg:text-6xl' :
-                    'text-4xl lg:text-5xl';
-  const metricValueSize = size === 'compact' ? 'text-4xl lg:text-5xl' :
-                          size === 'large' ? 'text-6xl lg:text-7xl' :
-                          'text-5xl lg:text-6xl';
-
+function MetricsSection({ section }: { section: any }) {
   return (
-    <div className={`metrics-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
+    <div className="metrics-section h-full flex flex-col justify-center py-6 px-6 md:px-12">
       {section.title && (
-        <h3 className={`${titleSize} font-bold mb-12 text-center`} style={{ color: COLORS.navy }}>
+        <h3 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-6 text-center" style={{ color: COLORS.navy }}>
           {section.title}
         </h3>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {section.metrics.map((metric: any, idx: number) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+        {section.metrics?.map((metric: any, idx: number) => (
           <div
             key={idx}
-            className={`metric-card p-8 rounded-2xl text-center hover:shadow-xl transition-all hover:-translate-y-1 duration-300 border-2 ${weightClasses.shadow}`}
+            className="metric-card p-4 md:p-6 rounded-xl text-center hover:shadow-xl transition-all hover:-translate-y-1 duration-300 border-2"
             style={{
               backgroundColor: COLORS.white,
               borderColor: COLORS.mediumGray,
             }}
           >
-            <div className={`${metricValueSize} font-bold mb-4 bg-gradient-to-r from-[#AA6C39] to-[#00C8FF] bg-clip-text text-transparent`}>
+            <div className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 bg-gradient-to-r from-[#AA6C39] to-[#00C8FF] bg-clip-text text-transparent">
               {metric.value}
             </div>
-            <p className="text-xl font-bold mb-3" style={{ color: COLORS.navy }}>
+            <p className="text-sm md:text-base lg:text-lg font-bold mb-1" style={{ color: COLORS.navy }}>
               {metric.label}
             </p>
             {metric.description && (
-              <p className="text-base leading-relaxed" style={{ color: COLORS.darkGray }}>
+              <p className="text-xs md:text-sm leading-relaxed" style={{ color: COLORS.darkGray }}>
                 {metric.description}
               </p>
             )}
@@ -679,55 +717,38 @@ function MetricsSection({
  * Steps Section Component
  * Implementation or process steps with gradient timeline
  */
-function StepsSection({
-  section,
-  onNavigationClick,
-  size,
-  visualWeight
-}: {
-  section: any;
-  onNavigationClick?: (action: string, context?: any) => void;
-  size?: 'compact' | 'medium' | 'large';
-  visualWeight?: 'subtle' | 'normal' | 'prominent';
-}) {
-  const sizeClasses = getSizeClasses(size);
-  const weightClasses = getVisualWeightClasses(visualWeight);
-
-  const titleSize = size === 'compact' ? 'text-3xl lg:text-4xl' :
-                    size === 'large' ? 'text-5xl lg:text-6xl' :
-                    'text-4xl lg:text-5xl';
-
+function StepsSection({ section }: { section: any }) {
   return (
-    <div className={`steps-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
+    <div className="steps-section h-full flex flex-col justify-center py-6 px-6 md:px-12">
       {section.title && (
-        <h3 className={`${titleSize} font-bold mb-4`} style={{ color: COLORS.navy }}>
+        <h3 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3" style={{ color: COLORS.navy }}>
           {section.title}
         </h3>
       )}
       {section.timeline && (
-        <p className="text-xl font-semibold mb-12 bg-gradient-to-r from-[#AA6C39] to-[#00C8FF] bg-clip-text text-transparent">
+        <p className="text-base md:text-lg font-semibold mb-6 bg-gradient-to-r from-[#AA6C39] to-[#00C8FF] bg-clip-text text-transparent">
           Timeline: {section.timeline}
         </p>
       )}
 
-      <div className="relative">
+      <div className="relative flex-1">
         {/* Vertical gradient line */}
-        <div className="absolute left-8 top-0 bottom-0 w-1 hidden md:block bg-gradient-to-b from-[#AA6C39] via-[#00C8FF] to-[#AA6C39]" />
+        <div className="absolute left-6 top-0 bottom-0 w-0.5 hidden md:block bg-gradient-to-b from-[#AA6C39] via-[#00C8FF] to-[#AA6C39]" />
 
         {/* Steps */}
-        <div className="space-y-8">
-          {section.steps.map((step: any, idx: number) => (
-            <div key={idx} className="flex gap-6">
+        <div className="space-y-4">
+          {section.steps?.map((step: any, idx: number) => (
+            <div key={idx} className="flex gap-4">
               <div className="flex-shrink-0">
-                <div className="flex items-center justify-center w-16 h-16 rounded-full text-white font-bold text-xl shadow-lg bg-gradient-to-br from-[#AA6C39] to-[#00C8FF]">
+                <div className="flex items-center justify-center w-12 h-12 rounded-full text-white font-bold text-base shadow-lg bg-gradient-to-br from-[#AA6C39] to-[#00C8FF]">
                   {step.number}
                 </div>
               </div>
-              <div className="flex-grow pt-2 p-6 bg-white rounded-2xl border-2 hover:shadow-xl hover:-translate-y-1 transition-all" style={{ borderColor: COLORS.mediumGray }}>
-                <h4 className="text-xl font-bold mb-2" style={{ color: COLORS.navy }}>
+              <div className="flex-grow p-4 bg-white rounded-xl border-2 hover:shadow-xl hover:-translate-y-1 transition-all" style={{ borderColor: COLORS.mediumGray }}>
+                <h4 className="text-base md:text-lg font-bold mb-1" style={{ color: COLORS.navy }}>
                   {step.title}
                 </h4>
-                <p className="text-base leading-relaxed" style={{ color: COLORS.textGray }}>
+                <p className="text-sm md:text-base leading-relaxed" style={{ color: COLORS.textGray }}>
                   {step.description}
                 </p>
               </div>
@@ -738,4 +759,3 @@ function StepsSection({
     </div>
   );
 }
-

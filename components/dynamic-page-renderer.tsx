@@ -131,29 +131,37 @@ export function DynamicPageRenderer({
       {/* Full Navigation Bar - Fixed at top with logo, About Us, Profile */}
       <Navigation onProfileClick={onProfileClick} />
 
-      {/* Content - fills available space with grid layout (accounting for nav height) */}
+      {/* Content wrapper - accounts for fixed nav (64px) and uses remaining space */}
       <div
         className="flex-1 overflow-hidden"
         style={{
-          display: 'grid',
-          gridTemplateRows,
-          paddingTop: '64px', // Account for fixed navigation height (16px base * 4 = 64px)
+          paddingTop: '64px', // Account for fixed navigation height
+          height: 'calc(100vh - 64px)', // Explicit height calculation for grid
         }}
       >
-        {/* Render sections in grid cells */}
-        {sanitizedPage.sections.map((section, index) => (
-          <SectionRenderer
-            key={index}
-            section={section}
-            index={index}
-            onNavigationClick={onNavigationClick}
-            onBackToHome={onBackToHome}
-          />
-        ))}
-      </div>
+        {/* Content grid - fills available space with height-normalized sections */}
+        <div
+          className="h-full overflow-hidden"
+          style={{
+            display: 'grid',
+            gridTemplateRows,
+          }}
+        >
+          {/* Render sections in grid cells */}
+          {sanitizedPage.sections.map((section, index) => (
+            <SectionRenderer
+              key={index}
+              section={section}
+              index={index}
+              onNavigationClick={onNavigationClick}
+              onBackToHome={onBackToHome}
+            />
+          ))}
+        </div>
 
-      {/* Footer - fixed height at bottom */}
-      <Footer />
+        {/* Footer - fixed height at bottom */}
+        <Footer />
+      </div>
     </div>
   );
 }

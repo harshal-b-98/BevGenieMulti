@@ -129,9 +129,7 @@ export function DynamicPageRenderer({
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-[#0A1628]">
       {/* Full Navigation Bar - Fixed at top with logo, About Us, Profile */}
-      <div className="flex-shrink-0">
-        <Navigation onProfileClick={onProfileClick} />
-      </div>
+      <Navigation onProfileClick={onProfileClick} />
 
       {/* Content - fills available space with grid layout (accounting for nav height) */}
       <div
@@ -139,7 +137,7 @@ export function DynamicPageRenderer({
         style={{
           display: 'grid',
           gridTemplateRows,
-          marginTop: '64px', // Account for fixed navigation height
+          paddingTop: '64px', // Account for fixed navigation height (16px base * 4 = 64px)
         }}
       >
         {/* Render sections in grid cells */}

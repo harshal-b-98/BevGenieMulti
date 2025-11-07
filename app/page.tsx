@@ -345,7 +345,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="relative snap-y snap-mandatory overflow-y-auto h-screen scroll-smooth" id="infinite-canvas">
+    <div className="relative" id="infinite-canvas">
       {/* Loading Screen - Simple Blinking Text */}
       {isGenerating && (
         <SimpleLoader
@@ -356,9 +356,9 @@ export default function HomePage() {
         />
       )}
 
-      {/* Landing Page - Show when no pages generated - SINGLE SCREEN */}
+      {/* Landing Page - Show when no pages generated - Full scrollable page */}
       {showFullLandingPage && (
-        <main className="h-screen overflow-hidden snap-start">
+        <main className="min-h-screen">
           <Navigation onProfileClick={() => setIsProfileOpen(true)} />
           <Hero onCtaClick={(text) => handleSendMessage(`I want to ${text}`, { source: 'hero-cta', text })} />
           <Challenges onCardClick={(title, description) => handleSendMessage(`Tell me more about ${title}: ${description}`, { source: 'challenges-card', title, description })} />
@@ -371,43 +371,25 @@ export default function HomePage() {
         </main>
       )}
 
-      {/* Generated Pages Stack - Vertical Scrolling with Snap Points */}
+      {/* Generated Pages Stack - Replace landing page with generated content */}
       {pageHistory.length > 0 && (
-        <>
-          {/* Show full landing page first when there are generated pages */}
-          {!showFullLandingPage && (
-            <div className="h-screen overflow-hidden snap-start">
-              <Navigation onProfileClick={() => setIsProfileOpen(true)} />
-              <Hero onCtaClick={(text) => handleSendMessage(`I want to ${text}`, { source: 'hero-cta', text })} />
-              <Challenges onCardClick={(title, description) => handleSendMessage(`Tell me more about ${title}: ${description}`, { source: 'challenges-card', title, description })} />
-              <DataPowered />
-              <Solutions
-                onCardClick={(title) => handleSendMessage(`Show me solutions for ${title}`, { source: 'solutions-card', category: title })}
-                onQuestionClick={(question, category) => handleSendMessage(question, { source: 'solutions-question', question, category })}
+        <div id="generated-pages-stack">
+          {pageHistory.map((page, index) => (
+            <section
+              key={page.id}
+              id={page.id}
+              ref={index === pageHistory.length - 1 ? lastPageRef : null}
+              className="min-h-screen"
+              data-page-index={index}
+            >
+              <DynamicContent
+                specification={page.content}
+                onBackToHome={handleBackToHome}
+                onNavigationClick={handleNavigationClick}
               />
-              <Footer />
-            </div>
-          )}
-
-          {/* Generated pages */}
-          <div id="generated-pages-stack">
-            {pageHistory.map((page, index) => (
-              <section
-                key={page.id}
-                id={page.id}
-                ref={index === pageHistory.length - 1 ? lastPageRef : null}
-                className="snap-start h-screen overflow-hidden"
-                data-page-index={index}
-              >
-                <DynamicContent
-                  specification={page.content}
-                  onBackToHome={handleBackToHome}
-                  onNavigationClick={handleNavigationClick}
-                />
-              </section>
-            ))}
-          </div>
-        </>
+            </section>
+          ))}
+        </div>
       )}
 
       {/* Chat Bubble (Always visible) - Passes message history */}

@@ -170,8 +170,9 @@ async function attemptPageGeneration(
   const userPrompt = buildUserPrompt(request);
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5-20250929', // Switched from Opus-4 for 3-5x faster generation
-    max_tokens: 2500, // Reduced from 4000 for faster generation
+    model: 'claude-sonnet-4-5-20250929', // Fast model for quick generation
+    max_tokens: 1500, // Reduced for faster generation (was 2500)
+    temperature: 0.3, // Lower temperature for more consistent output
     system: [
       {
         type: 'text',
@@ -219,146 +220,81 @@ function buildSystemPrompt(
   retryCount: number
 ): string {
   const template = PAGE_TYPE_TEMPLATES[request.pageType];
-  const retryNote =
-    retryCount > 0
-      ? `\n\nNote: This is retry attempt ${retryCount}. Please pay careful attention to the schema requirements and ensure all fields are present and valid.`
-      : '';
+  const retryNote = retryCount > 0 ? `\nRetry ${retryCount}: Fix previous validation errors.` : '';
 
-  return `You are an expert B2B SaaS marketing page generator specializing in the beverage industry. You create professional, detailed, and personalized pages for BevGenie - a beverage industry intelligence platform.
+  return `You are a UI/UX designer AND content creator for ${request.pageType} pages (beverage B2B SaaS).
 
-Your task is to generate a professional ${request.pageType} page specification that will be rendered as a full-featured React website component.
+SCREEN SPACE: You have ~100vh (one viewport height) to work with. Design a layout that fits perfectly in one screen without scrolling.
 
-Page Type: ${request.pageType}
-${template}
+YOUR TASK: Design both content AND layout. You decide:
+1. Which sections to include (only relevant ones)
+2. How much vertical space each section gets (compact/medium/spacious)
+3. Visual hierarchy (what's prominent, what's subtle)
+4. Section order and arrangement
 
-⚠️⚠️⚠️ CRITICAL: USE SINGLE-SCREEN FORMAT ⚠️⚠️⚠️
-
-ALL pages MUST use the single_screen section format. This is the ONLY acceptable format.
-The single_screen format provides a complete, modern answer in exactly one screen (100vh, non-scrollable).
-
-Your "sections" array MUST contain EXACTLY ONE object with type: "single_screen"
-
-CRITICAL REQUIREMENTS:
-1. ⚠️ MANDATORY: Your "sections" array MUST contain EXACTLY ONE object with type: "single_screen"
-2. Output ONLY valid JSON that matches the BevGeniePage schema
-3. Do NOT include markdown formatting, code blocks, or explanations - output JSON only
-4. Ensure all required fields are present and complete
-5. Follow the character limits specified in validation rules
-6. Create DETAILED, SPECIFIC, and PROFESSIONAL content for the beverage industry
-7. Include concrete metrics, data points, and industry-specific insights from the knowledge base
-8. Make headlines compelling and subheadlines supporting - not redundant
-9. Create action-oriented CTAs with clear business value
-10. Structure content to flow logically from problem → insight → solution → action
-11. Use professional B2B SaaS language appropriate for C-suite executives and department heads
-
-⚠️ CONTENT GENERATION REQUIREMENTS - COMPREHENSIVE & INFORMATIVE:
-
-Your single-screen sections MUST answer the user's query COMPLETELY within one viewport.
-Each section is INFORMATION-RICH with specific, actionable insights.
-
-SINGLE-SCREEN SECTION FORMAT:
+OUTPUT STRUCTURE:
 {
-  "type": "single_screen",
-  "headline": "Clear, Benefit-Driven Title (20-80 chars max)" - Focus on the VALUE, not feature name
-  "subtitle": "Specific Context (15-60 chars max)" - MUST be specific to user's query. Examples: "Velocity Analysis for Beer Brands" or "Market Expansion Strategy". NEVER use: "Solution Brief", "BevGenie Solution", or generic terms.
-
-  "insights": [
-    {
-      "text": "DETAILED insight (50-250 chars). 2-3 sentences max. Example: 'Velocity Shift Detection: Our AI identifies 15-30% more sales opportunities by analyzing campaign velocity shifts across your distribution network that traditional analytics miss.'"
-    },
-    {
-      "text": "ACTIONABLE insight (50-250 chars). 2-3 sentences max. Example: 'Market Pattern Recognition: Intelligent algorithms recognize emerging patterns in real-time, allowing you to capitalize on opportunities 3-4 weeks faster than competitors.'"
-    },
-    {
-      "text": "OUTCOME-focused insight (50-250 chars). 2-3 sentences max. Example: 'Automated Revenue Strategies: AI converts market data into specific sales actions, increasing conversion rates by 2.5x on average.'"
-    },
-    {
-      "text": "FOURTH insight connecting to their business (optional). 50-250 chars max. 2-3 sentences."
-    }
-  ],
-
-  "stats": [
-    {
-      "value": "15-30%" (max 15 chars - keep it SHORT),
-      "label": "More Sales Opportunities" (max 40 chars),
-      "description": "Than traditional methods" (optional, max 50 chars)
-    },
-    {
-      "value": "3-4 wks" (max 15 chars),
-      "label": "Faster Market Response" (max 40 chars),
-      "description": "Before competitors" (optional)
-    },
-    {
-      "value": "2.5x" (max 15 chars),
-      "label": "Conversion Rate Boost" (max 40 chars),
-      "description": "Average improvement" (optional)
-    }
-  ],
-
-  "visualContent": {
-    "type": "case_study" OR "highlight_box" OR "example",
-    "title": "Real-World Impact" (max 50 chars),
-    "content": "DETAILED narrative (100-400 chars max, 3-5 sentences). For case_study: tell a specific story with company type, challenge, solution, and outcome. For highlight_box: explain the mechanism in detail. For example: show a concrete scenario.",
-    "highlight": "KEY RESULT with numbers (20-200 chars). Example: '$2.3M additional revenue in Q4 by targeting 12 previously overlooked accounts'"
+  "type": "${request.pageType}",
+  "title": "50-100ch",
+  "description": "150-250ch",
+  "layout": {
+    "mode": "compact" | "balanced" | "spacious",
+    "totalSections": 2-5,
+    "estimatedHeight": "fits in 100vh"
   },
-
-  "howItWorks": [
-    "Connect your campaign and sales data seamlessly" (20-100 chars per step),
-    "AI analyzes velocity patterns across all markets",
-    "Receive prioritized opportunity alerts weekly",
-    "Get specific account recommendations with reasoning",
-    "Track ROI on every acted opportunity"
-  ] (3-5 specific, actionable steps, EACH 20-100 chars),
-
-  "ctas": [
+  "sections": [
     {
-      "text": "Schedule Opportunity Analysis" (5-40 chars max),
-      "type": "primary",
-      "action": "form",
-      "submissionType": "demo"
-    },
-    {
-      "text": "View Case Studies" (5-40 chars max),
-      "type": "secondary",
-      "action": "new_section",
-      "context": { "topic": "success_stories", "related_to": "headline" }
-    },
-    {
-      "text": "Explore [Related Topic]" (5-40 chars max),
-      "type": "secondary",
-      "action": "new_section",
-      "context": { "topic": "..." }
+      "type": "hero|feature_grid|metrics|comparison_table|steps|cta|faq|single_screen",
+      "size": "compact|medium|large",
+      "visualWeight": "subtle|normal|prominent",
+      ...content fields...
     }
-  ] (Always provide 2-3 CTAs with diverse actions)
+  ]
 }
 
-CRITICAL CONTENT RULES:
-1. ⚠️ FITS ON ONE SCREEN - All content MUST fit in 100vh without scrolling. Keep text concise! Respect character limits!
-2. ANSWER THE QUESTION FULLY - Don't be vague. Provide specific mechanisms, numbers, and outcomes
-3. BE CONCRETE - Use real industry data, specific percentages, timeframes, dollar amounts
-4. SHOW VALUE - Every insight must connect to business impact (revenue, time, efficiency)
-5. USE BEVERAGE INDUSTRY CONTEXT - Reference specific categories (spirits, beer, wine), distributor challenges, market dynamics
-6. MAKE IT SCANNABLE - Each insight is self-contained, stats are large and clear
-7. PROVIDE NEXT ACTIONS - 2-3 different CTAs for different user intents (demo, learn more, explore related)
-8. ⚠️ RESPECT CHAR LIMITS - Going over character limits will cause UI overflow and break the page!
+SECTION TYPES:
+1. hero (20-30vh compact, 30-40vh large): Opening impact
+2. feature_grid (25-35vh): 2-4 features with icons
+3. metrics (15-25vh): 2-4 key stats (only if you have real numbers)
+4. comparison_table (30-40vh): Feature comparison (only for vs questions)
+5. steps (25-35vh): Process steps (only for how-to)
+6. cta (15-20vh): Call to action
+7. faq (30-40vh): Q&As (only for complex questions)
+8. single_screen (100vh): All-in-one compact format
 
-DESIGN SYSTEM:
-Brand Colors: Copper (#AA6C39), Cyan (#00C8FF), Navy (#0A1930)
-Typography: Headlines (text-5xl-7xl), Body (text-xl)
-Components: Modern cards, gradients, hover effects, animations
-Spacing: Generous padding (py-20), large icons (w-16), dramatic CTAs
+LAYOUT MODES:
+- compact: Dense, fits more content (hero-compact + feature_grid-compact + cta-compact = ~80vh)
+- balanced: Medium spacing (hero-medium + metrics-medium + cta-medium = ~90vh)
+- spacious: Generous breathing room (hero-large + cta-large = ~70vh, rest whitespace)
 
-CONTENT: Use beverage industry context, real metrics from KB, personalized to query. Include 4-5 sections: hero, features/benefits, metrics, CTA.
+DESIGN DECISIONS:
+✓ Quick answer? → single_screen (100vh, all content in one section)
+✓ Feature question? → compact mode: hero-compact + feature_grid-medium + cta-compact
+✓ Process question? → balanced mode: hero-medium + steps-medium + cta-compact
+✓ Results question? → spacious mode: hero-large + metrics-large + cta-medium
+✓ Comparison? → balanced mode: hero-compact + comparison_table-large + cta-compact
 
-SCHEMA: type="${request.pageType}", title (50-100), description (150-250), sections array.
-Section types: hero, feature_grid, comparison_table, cta, faq, metrics, steps.
-NOTE: Do NOT use testimonial sections - BevGenie is a new product.
+RULES:
+- Total estimated height should be ≤100vh
+- Don't include sections without relevant content
+- Size sections based on content importance
+- Use "prominent" visualWeight for the most important section
+- Compact mode = more sections, less space each
+- Spacious mode = fewer sections, more space each
 
-ICONS: Use Feather icons (lucide-react) - emojis or simple icon names like: TrendingUp, BarChart, Users, Zap, Target, CheckCircle, ArrowRight, etc.
+EXAMPLE GOOD LAYOUTS:
+Q: "How do you track sales?"
+→ compact: hero-compact (25vh) + steps-medium (35vh) + cta-compact (15vh) = 75vh ✓
 
-STYLING: Gradient backgrounds, large headlines, copper/cyan colors, hover effects, animations, generous spacing.
+Q: "What results?"
+→ spacious: hero-large (40vh) + metrics-large (35vh) + cta-medium (20vh) = 95vh ✓
 
-Respond with ONLY the JSON page specification, nothing else.${retryNote}`;
+Q: "What is BevGenie?"
+→ single_screen (100vh) ✓
+
+COLORS: Navy #0A1930, Cyan #00C8FF, Copper #AA6C39
+CONTENT: Beverage-specific, professional B2B
+OUTPUT: Valid JSON only${retryNote}`;
 }
 
 /**
@@ -366,63 +302,32 @@ Respond with ONLY the JSON page specification, nothing else.${retryNote}`;
  * Includes specific context from the conversation and knowledge base
  */
 function buildUserPrompt(request: PageGenerationRequest): string {
-  const contextParts: string[] = [];
+  const parts: string[] = [];
 
-  contextParts.push(`CONTEXT:`);
-  contextParts.push(`User's Question/Topic: "${request.userMessage}"`);
+  parts.push(`QUERY: "${request.userMessage}"`);
 
   // Add page interaction context if available
-  if (request.pageContext) {
-    contextParts.push(`\nUser Interaction Context:`);
-    contextParts.push(`- Interaction Type: ${request.interactionSource || 'direct_question'}`);
-    if (request.pageContext.originalQuery) {
-      contextParts.push(`- Original Query: "${request.pageContext.originalQuery}"`);
-    }
-    if (request.pageContext.context) {
-      contextParts.push(`- User Clicked On: "${request.pageContext.context}"`);
-    }
-    contextParts.push(`\nNote: The user is refining their query by clicking on specific page elements.`);
-    contextParts.push(`Generate deeper, more specific content based on what they clicked on.`);
+  if (request.pageContext?.context) {
+    parts.push(`\nCONTEXT: User clicked "${request.pageContext.context}" - provide deeper detail on this.`);
   }
 
-  // Add persona context if available
+  // Add persona context (brief)
   if (request.personaDescription) {
-    contextParts.push(`\nUser Profile/Persona:${request.personaDescription}`);
+    parts.push(`\nUSER: ${request.personaDescription.substring(0, 150)}`);
   }
 
-  // Add knowledge documents as internal context for LLM (not visible to end user)
+  // Add knowledge documents - top 2 only, 150 chars each
   if (request.knowledgeDocuments && request.knowledgeDocuments.length > 0) {
-    contextParts.push(`\n====== KB CONTEXT ======`);
-    contextParts.push(`Use these industry insights to personalize your page:\n`);
-    // Limit to top 3 docs and truncate to 200 chars each for speed
-    request.knowledgeDocuments.slice(0, 3).forEach((doc, idx) => {
-      const relevancePercent = Math.round((doc.similarity_score || 0) * 100);
-      const truncatedContent = doc.content.substring(0, 200);
-      contextParts.push(`[${idx + 1}] ${relevancePercent}%: ${truncatedContent}...\n`);
-    });
-    contextParts.push(`====== END KB ======\n`);
-  }
-
-  // Add knowledge context - reduced for speed
-  if (request.knowledgeContext && request.knowledgeContext.length > 0) {
-    contextParts.push(`\nINDUSTRY INSIGHTS:`);
-    request.knowledgeContext.slice(0, 3).forEach((context, idx) => {
-      // Truncate to 150 chars
-      contextParts.push(`${idx + 1}. ${context.substring(0, 150)}...`);
+    parts.push(`\nINSIGHTS:`);
+    request.knowledgeDocuments.slice(0, 2).forEach((doc, idx) => {
+      const percent = Math.round((doc.similarity_score || 0) * 100);
+      parts.push(`${idx + 1}. [${percent}%] ${doc.content.substring(0, 150)}`);
     });
   }
 
-  // Add conversation history - last 2 messages only
-  if (request.conversationHistory && request.conversationHistory.length > 1) {
-    const recent = request.conversationHistory.slice(-2).map((m) =>
-      `${m.role}: ${m.content.substring(0, 100)}...`
-    );
-    contextParts.push(`\nRECENT: ${recent.join(' | ')}`);
-  }
+  parts.push(`\nGenerate ${request.pageType} with varied sections. Output JSON only.`);
 
-  contextParts.push(`\n\nTASK: Generate ${request.pageType} page using KB insights. 4-5 sections, beverage-specific, data-driven. Output ONLY JSON.`);
-
-  return contextParts.join('\n');
+  return parts.join('\n');
 }
 
 /**

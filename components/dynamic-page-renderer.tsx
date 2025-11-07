@@ -52,6 +52,42 @@ export function DynamicPageRenderer({
 }
 
 /**
+ * Layout utility functions
+ * Map size and visualWeight properties to Tailwind classes
+ */
+function getSizeClasses(size?: 'compact' | 'medium' | 'large'): {
+  minHeight: string;
+  padding: string;
+  textScale: string;
+} {
+  switch (size) {
+    case 'compact':
+      return { minHeight: 'min-h-[25vh]', padding: 'py-8', textScale: 'scale-90' };
+    case 'large':
+      return { minHeight: 'min-h-[40vh]', padding: 'py-24', textScale: 'scale-110' };
+    case 'medium':
+    default:
+      return { minHeight: 'min-h-[30vh]', padding: 'py-16', textScale: 'scale-100' };
+  }
+}
+
+function getVisualWeightClasses(weight?: 'subtle' | 'normal' | 'prominent'): {
+  opacity: string;
+  fontScale: string;
+  shadow: string;
+} {
+  switch (weight) {
+    case 'subtle':
+      return { opacity: 'opacity-75', fontScale: 'text-sm', shadow: 'shadow-sm' };
+    case 'prominent':
+      return { opacity: 'opacity-100', fontScale: 'text-lg', shadow: 'shadow-2xl' };
+    case 'normal':
+    default:
+      return { opacity: 'opacity-90', fontScale: 'text-base', shadow: 'shadow-lg' };
+  }
+}
+
+/**
  * Section Renderer
  * Routes to appropriate section component based on section type
  */
@@ -66,6 +102,12 @@ function SectionRenderer({
   onNavigationClick?: (action: string, context?: any) => void;
   onBackToHome?: () => void;
 }) {
+  const sectionWithLayout = section as any;
+  const layoutProps = {
+    size: sectionWithLayout.size,
+    visualWeight: sectionWithLayout.visualWeight,
+  };
+
   switch (section.type) {
     case 'single_screen':
       return (
@@ -82,20 +124,20 @@ function SectionRenderer({
         />
       );
     case 'hero':
-      return <HeroSection section={section} onNavigationClick={onNavigationClick} />;
+      return <HeroSection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
     case 'feature_grid':
-      return <FeatureGridSection section={section} onNavigationClick={onNavigationClick} />;
+      return <FeatureGridSection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
     // Testimonial sections removed - BevGenie is a new product
     case 'comparison_table':
-      return <ComparisonTableSection section={section} />;
+      return <ComparisonTableSection section={section} {...layoutProps} />;
     case 'cta':
-      return <CTASection section={section} onNavigationClick={onNavigationClick} />;
+      return <CTASection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
     case 'faq':
-      return <FAQSection section={section} />;
+      return <FAQSection section={section} {...layoutProps} />;
     case 'metrics':
-      return <MetricsSection section={section} />;
+      return <MetricsSection section={section} {...layoutProps} />;
     case 'steps':
-      return <StepsSection section={section} onNavigationClick={onNavigationClick} />;
+      return <StepsSection section={section} onNavigationClick={onNavigationClick} {...layoutProps} />;
     default:
       return (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
@@ -112,9 +154,13 @@ function SectionRenderer({
 function HeroSection({
   section,
   onNavigationClick,
+  size,
+  visualWeight,
 }: {
   section: any;
   onNavigationClick?: (action: string, context?: any) => void;
+  size?: 'compact' | 'medium' | 'large';
+  visualWeight?: 'subtle' | 'normal' | 'prominent';
 }) {
   const handleCtaClick = () => {
     if (onNavigationClick) {
@@ -138,8 +184,19 @@ function HeroSection({
   const lastWord = words[words.length - 1];
   const restOfHeadline = words.slice(0, -1).join(' ');
 
+  const sizeClasses = getSizeClasses(size);
+  const weightClasses = getVisualWeightClasses(visualWeight);
+
+  // Dynamic text sizes based on size and weight
+  const headlineSize = size === 'compact' ? 'text-4xl lg:text-5xl' :
+                       size === 'large' ? 'text-6xl lg:text-7xl xl:text-8xl' :
+                       'text-5xl lg:text-6xl xl:text-7xl';
+  const subheadlineSize = size === 'compact' ? 'text-base' :
+                          size === 'large' ? 'text-2xl' :
+                          'text-xl';
+
   return (
-    <div className="hero-section relative min-h-[85vh] flex items-center overflow-hidden py-20 px-6 rounded-2xl">
+    <div className={`hero-section relative ${sizeClasses.minHeight} flex items-center overflow-hidden ${sizeClasses.padding} px-6 rounded-2xl ${weightClasses.opacity}`}>
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#fdf8f6] via-white to-[#ecfeff]" />
 
@@ -148,12 +205,12 @@ function HeroSection({
       <div className="absolute bottom-20 left-10 w-80 h-80 bg-[#00C8FF]/10 rounded-full blur-3xl animate-pulse-slow" />
 
       <div className="max-w-4xl relative z-10">
-        <h2 className="text-5xl lg:text-6xl xl:text-7xl font-bold mb-6 leading-tight">
+        <h2 className={`${headlineSize} font-bold mb-6 leading-tight`}>
           <span style={{ color: COLORS.navy }}>{restOfHeadline} </span>
           <span className="gradient-text">{lastWord}</span>
         </h2>
         {section.subheadline && (
-          <p className="text-xl leading-relaxed mb-10 max-w-3xl" style={{ color: COLORS.darkGray }}>
+          <p className={`${subheadlineSize} leading-relaxed mb-10 max-w-3xl`} style={{ color: COLORS.darkGray }}>
             {section.subheadline}
           </p>
         )}
@@ -161,7 +218,7 @@ function HeroSection({
           <div className="flex flex-wrap gap-4 mt-8">
             <button
               onClick={handleCtaClick}
-              className="px-10 py-5 font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all text-white bg-gradient-to-r from-[#AA6C39] to-[#8B5A2B]"
+              className={`px-10 py-5 font-bold rounded-xl ${weightClasses.shadow} hover:shadow-xl hover:-translate-y-1 transition-all text-white bg-gradient-to-r from-[#AA6C39] to-[#8B5A2B]`}
             >
               {section.ctaButton.text}
             </button>
@@ -186,11 +243,28 @@ function HeroSection({
  * Feature Grid Section Component
  * Grid of features with icons and descriptions - Modern design with gradient icons
  */
-function FeatureGridSection({ section }: { section: any }) {
+function FeatureGridSection({
+  section,
+  onNavigationClick,
+  size,
+  visualWeight
+}: {
+  section: any;
+  onNavigationClick?: (action: string, context?: any) => void;
+  size?: 'compact' | 'medium' | 'large';
+  visualWeight?: 'subtle' | 'normal' | 'prominent';
+}) {
+  const sizeClasses = getSizeClasses(size);
+  const weightClasses = getVisualWeightClasses(visualWeight);
+
+  const titleSize = size === 'compact' ? 'text-3xl lg:text-4xl' :
+                    size === 'large' ? 'text-5xl lg:text-6xl' :
+                    'text-4xl lg:text-5xl';
+
   return (
-    <div className="feature-grid-section py-20">
+    <div className={`feature-grid-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
       {section.title && (
-        <h3 className="text-4xl lg:text-5xl font-bold mb-4" style={{ color: COLORS.navy }}>
+        <h3 className={`${titleSize} font-bold mb-4`} style={{ color: COLORS.navy }}>
           {section.title}
         </h3>
       )}
@@ -301,12 +375,27 @@ function TestimonialSection({ section }: { section: any }) {
  * Comparison Table Section Component
  * Feature-by-feature comparison matrix
  */
-function ComparisonTableSection({ section }: { section: any }) {
+function ComparisonTableSection({
+  section,
+  size,
+  visualWeight
+}: {
+  section: any;
+  size?: 'compact' | 'medium' | 'large';
+  visualWeight?: 'subtle' | 'normal' | 'prominent';
+}) {
+  const sizeClasses = getSizeClasses(size);
+  const weightClasses = getVisualWeightClasses(visualWeight);
+
+  const titleSize = size === 'compact' ? 'text-xl' :
+                    size === 'large' ? 'text-3xl' :
+                    'text-2xl';
+
   return (
-    <div className="comparison-table-section">
+    <div className={`comparison-table-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
       {section.title && (
         <h3
-          className="text-2xl font-bold mb-6"
+          className={`${titleSize} font-bold mb-6`}
           style={{ color: COLORS.navy }}
         >
           {section.title}
@@ -386,9 +475,13 @@ function ComparisonTableSection({ section }: { section: any }) {
 function CTASection({
   section,
   onNavigationClick,
+  size,
+  visualWeight
 }: {
   section: any;
   onNavigationClick?: (action: string, context?: any) => void;
+  size?: 'compact' | 'medium' | 'large';
+  visualWeight?: 'subtle' | 'normal' | 'prominent';
 }) {
   const handleButtonClick = (button: any) => {
     if (onNavigationClick) {
@@ -400,8 +493,15 @@ function CTASection({
     }
   };
 
+  const sizeClasses = getSizeClasses(size);
+  const weightClasses = getVisualWeightClasses(visualWeight);
+
+  const titleSize = size === 'compact' ? 'text-3xl md:text-4xl' :
+                    size === 'large' ? 'text-5xl md:text-6xl lg:text-7xl' :
+                    'text-4xl md:text-5xl lg:text-6xl';
+
   return (
-    <div className="cta-section relative py-20 px-6 rounded-2xl shadow-2xl text-center text-white overflow-hidden">
+    <div className={`cta-section relative ${sizeClasses.padding} px-6 rounded-2xl ${weightClasses.shadow} text-center text-white overflow-hidden ${weightClasses.opacity}`}>
       {/* Gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#AA6C39] via-[#0A1930] to-[#243b53]" />
 
@@ -410,7 +510,7 @@ function CTASection({
       <div className="absolute bottom-10 left-10 w-64 h-64 bg-[#AA6C39]/20 rounded-full blur-3xl animate-pulse-slow" />
 
       <div className="relative z-10">
-        <h3 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">{section.title}</h3>
+        <h3 className={`${titleSize} font-bold mb-6`}>{section.title}</h3>
         {section.description && (
           <p className="text-xl mb-12 max-w-2xl mx-auto leading-relaxed opacity-90">
             {section.description}
@@ -439,14 +539,29 @@ function CTASection({
  * FAQ Section Component
  * Accordion-style frequently asked questions
  */
-function FAQSection({ section }: { section: any }) {
+function FAQSection({
+  section,
+  size,
+  visualWeight
+}: {
+  section: any;
+  size?: 'compact' | 'medium' | 'large';
+  visualWeight?: 'subtle' | 'normal' | 'prominent';
+}) {
   const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null);
 
+  const sizeClasses = getSizeClasses(size);
+  const weightClasses = getVisualWeightClasses(visualWeight);
+
+  const titleSize = size === 'compact' ? 'text-xl' :
+                    size === 'large' ? 'text-3xl' :
+                    'text-2xl';
+
   return (
-    <div className="faq-section">
+    <div className={`faq-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
       {section.title && (
         <h3
-          className="text-2xl font-bold mb-6"
+          className={`${titleSize} font-bold mb-6`}
           style={{ color: COLORS.navy }}
         >
           {section.title}
@@ -505,11 +620,29 @@ function FAQSection({ section }: { section: any }) {
  * Metrics Section Component
  * Display key metrics and statistics - Modern design with gradient numbers
  */
-function MetricsSection({ section }: { section: any }) {
+function MetricsSection({
+  section,
+  size,
+  visualWeight
+}: {
+  section: any;
+  size?: 'compact' | 'medium' | 'large';
+  visualWeight?: 'subtle' | 'normal' | 'prominent';
+}) {
+  const sizeClasses = getSizeClasses(size);
+  const weightClasses = getVisualWeightClasses(visualWeight);
+
+  const titleSize = size === 'compact' ? 'text-3xl lg:text-4xl' :
+                    size === 'large' ? 'text-5xl lg:text-6xl' :
+                    'text-4xl lg:text-5xl';
+  const metricValueSize = size === 'compact' ? 'text-4xl lg:text-5xl' :
+                          size === 'large' ? 'text-6xl lg:text-7xl' :
+                          'text-5xl lg:text-6xl';
+
   return (
-    <div className="metrics-section py-20">
+    <div className={`metrics-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
       {section.title && (
-        <h3 className="text-4xl lg:text-5xl font-bold mb-12 text-center" style={{ color: COLORS.navy }}>
+        <h3 className={`${titleSize} font-bold mb-12 text-center`} style={{ color: COLORS.navy }}>
           {section.title}
         </h3>
       )}
@@ -518,13 +651,13 @@ function MetricsSection({ section }: { section: any }) {
         {section.metrics.map((metric: any, idx: number) => (
           <div
             key={idx}
-            className="metric-card p-8 rounded-2xl text-center hover:shadow-xl transition-all hover:-translate-y-1 duration-300 border-2"
+            className={`metric-card p-8 rounded-2xl text-center hover:shadow-xl transition-all hover:-translate-y-1 duration-300 border-2 ${weightClasses.shadow}`}
             style={{
               backgroundColor: COLORS.white,
               borderColor: COLORS.mediumGray,
             }}
           >
-            <div className="text-5xl lg:text-6xl font-bold mb-4 bg-gradient-to-r from-[#AA6C39] to-[#00C8FF] bg-clip-text text-transparent">
+            <div className={`${metricValueSize} font-bold mb-4 bg-gradient-to-r from-[#AA6C39] to-[#00C8FF] bg-clip-text text-transparent`}>
               {metric.value}
             </div>
             <p className="text-xl font-bold mb-3" style={{ color: COLORS.navy }}>
@@ -546,11 +679,28 @@ function MetricsSection({ section }: { section: any }) {
  * Steps Section Component
  * Implementation or process steps with gradient timeline
  */
-function StepsSection({ section }: { section: any }) {
+function StepsSection({
+  section,
+  onNavigationClick,
+  size,
+  visualWeight
+}: {
+  section: any;
+  onNavigationClick?: (action: string, context?: any) => void;
+  size?: 'compact' | 'medium' | 'large';
+  visualWeight?: 'subtle' | 'normal' | 'prominent';
+}) {
+  const sizeClasses = getSizeClasses(size);
+  const weightClasses = getVisualWeightClasses(visualWeight);
+
+  const titleSize = size === 'compact' ? 'text-3xl lg:text-4xl' :
+                    size === 'large' ? 'text-5xl lg:text-6xl' :
+                    'text-4xl lg:text-5xl';
+
   return (
-    <div className="steps-section py-20">
+    <div className={`steps-section ${sizeClasses.padding} ${weightClasses.opacity}`}>
       {section.title && (
-        <h3 className="text-4xl lg:text-5xl font-bold mb-4" style={{ color: COLORS.navy }}>
+        <h3 className={`${titleSize} font-bold mb-4`} style={{ color: COLORS.navy }}>
           {section.title}
         </h3>
       )}

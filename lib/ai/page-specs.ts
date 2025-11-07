@@ -12,9 +12,15 @@
 /**
  * Base section types that can be composed into pages
  * Each section has a specific purpose and predefined props schema
+ * Now includes layout metadata for LLM-driven UI design
  */
 
-export interface HeroSection {
+export interface BaseSectionLayout {
+  size?: 'compact' | 'medium' | 'large'; // Vertical space allocation
+  visualWeight?: 'subtle' | 'normal' | 'prominent'; // Visual hierarchy
+}
+
+export interface HeroSection extends BaseSectionLayout {
   type: 'hero';
   headline: string; // Main headline (50-100 chars)
   subheadline?: string; // Supporting text (100-150 chars)
@@ -25,11 +31,11 @@ export interface HeroSection {
   };
 }
 
-export interface FeatureGridSection {
+export interface FeatureGridSection extends BaseSectionLayout {
   type: 'feature_grid';
   title?: string;
   subtitle?: string;
-  columns: 2 | 3 | 4; // Layout flexibility
+  columns?: 2 | 3 | 4; // Layout flexibility (LLM can decide)
   features: Array<{
     icon?: string; // Icon name or emoji
     title: string;
@@ -48,7 +54,7 @@ export interface FeatureGridSection {
 //   image?: string;
 // }
 
-export interface ComparisonTableSection {
+export interface ComparisonTableSection extends BaseSectionLayout {
   type: 'comparison_table';
   title?: string;
   headers: string[]; // First header is usually "Feature", then competitors
@@ -58,7 +64,7 @@ export interface ComparisonTableSection {
   }>;
 }
 
-export interface CTASection {
+export interface CTASection extends BaseSectionLayout {
   type: 'cta';
   title: string;
   description?: string;
@@ -70,7 +76,7 @@ export interface CTASection {
   backgroundColor?: 'blue' | 'green' | 'purple';
 }
 
-export interface FAQSection {
+export interface FAQSection extends BaseSectionLayout {
   type: 'faq';
   title?: string;
   items: Array<{
@@ -79,7 +85,7 @@ export interface FAQSection {
   }>;
 }
 
-export interface MetricsSection {
+export interface MetricsSection extends BaseSectionLayout {
   type: 'metrics';
   title?: string;
   metrics: Array<{
@@ -89,7 +95,7 @@ export interface MetricsSection {
   }>;
 }
 
-export interface StepsSection {
+export interface StepsSection extends BaseSectionLayout {
   type: 'steps';
   title?: string;
   steps: Array<{
@@ -100,7 +106,7 @@ export interface StepsSection {
   timeline?: string; // e.g., "90 days"
 }
 
-export interface SingleScreenSection {
+export interface SingleScreenSection extends BaseSectionLayout {
   type: 'single_screen';
   headline: string;
   subtitle: string;
@@ -123,6 +129,15 @@ export interface SingleScreenSection {
     submissionType?: 'demo' | 'consultation' | 'case_study' | 'contact' | 'newsletter' | 'download';
     context?: any;
   }>;
+}
+
+/**
+ * Layout metadata for LLM-driven UI design
+ */
+export interface PageLayout {
+  mode: 'compact' | 'balanced' | 'spacious';
+  totalSections: number;
+  estimatedHeight: string; // e.g., "85vh" or "fits in 100vh"
 }
 
 /**
@@ -161,6 +176,7 @@ export interface SolutionBriefPage {
   type: 'solution_brief';
   title: string;
   description: string;
+  layout?: PageLayout; // LLM-driven layout metadata
   persona?: string; // e.g., "craft_brewery_sales_focus"
   painPointsAddressed: string[];
   sections: [HeroSection, FeatureGridSection, CTASection];
@@ -176,6 +192,7 @@ export interface FeatureShowcasePage {
   type: 'feature_showcase';
   title: string;
   description: string;
+  layout?: PageLayout; // LLM-driven layout metadata
   focusArea: string; // e.g., "Field Sales Tracking"
   featuredFeatures: string[];
   sections: [HeroSection, FeatureGridSection, ComparisonTableSection, CTASection];
@@ -190,6 +207,7 @@ export interface FeatureShowcasePage {
 export interface CaseStudyPage {
   type: 'case_study';
   title: string;
+  layout?: PageLayout; // LLM-driven layout metadata
   customerName: string;
   customerType: string; // e.g., "Craft Brewery"
   challenge: string;
@@ -206,6 +224,7 @@ export interface ComparisonPage {
   type: 'comparison';
   title: string;
   description: string;
+  layout?: PageLayout; // LLM-driven layout metadata
   competitors: string[];
   sections: [
     HeroSection,
@@ -225,6 +244,7 @@ export interface ImplementationRoadmapPage {
   type: 'implementation_roadmap';
   title: string;
   description: string;
+  layout?: PageLayout; // LLM-driven layout metadata
   estimatedDuration: string; // e.g., "90 days"
   sections: [HeroSection, StepsSection, FAQSection, CTASection];
 }
@@ -239,6 +259,7 @@ export interface ROICalculatorPage {
   type: 'roi_calculator';
   title: string;
   description: string;
+  layout?: PageLayout; // LLM-driven layout metadata
   assumptions: Array<{
     label: string;
     defaultValue: number;
@@ -290,17 +311,17 @@ export const VALIDATION_RULES = {
     subheadline: { minLength: 20, maxLength: 150 },
   },
   feature_grid: {
-    minFeatures: 2,
+    minFeatures: 1, // Relax from 2 to 1
     maxFeatures: 6,
     featureTitle: { minLength: 5, maxLength: 50 },
-    featureDescription: { minLength: 10, maxLength: 150 },
+    featureDescription: { minLength: 10, maxLength: 200 }, // Increased from 150
   },
   testimonial: {
     quote: { minLength: 20, maxLength: 300 },
     author: { minLength: 2, maxLength: 50 },
   },
   comparison_table: {
-    minRows: 3,
+    minRows: 2, // Relax from 3 to 2
     maxRows: 12,
     feature: { minLength: 5, maxLength: 50 },
   },
@@ -310,13 +331,13 @@ export const VALIDATION_RULES = {
     maxButtons: 3,
   },
   faq: {
-    minItems: 2,
+    minItems: 1, // Relax from 2 to 1
     maxItems: 8,
-    question: { minLength: 10, maxLength: 100 },
-    answer: { minLength: 20, maxLength: 500 },
+    question: { minLength: 10, maxLength: 150 }, // Increased
+    answer: { minLength: 20, maxLength: 600 }, // Increased from 500
   },
   metrics: {
-    minMetrics: 1,
+    minMetrics: 0, // Allow empty metrics sections (Claude might not always have metrics)
     maxMetrics: 5,
     value: { minLength: 1, maxLength: 20 },
   },

@@ -17,11 +17,11 @@ import { getPersonalizedSystemPrompt, PAIN_POINT_PROMPTS } from '@/lib/ai/prompt
 import { recordPersonaSignal, recordPersonaSignalsBatch } from '@/lib/session/session';
 import { classifyMessageIntent } from '@/lib/ai/intent-classification';
 import { generatePageSpec } from '@/lib/ai/page-generator';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import type { PersonaScores, PainPointType } from '@/lib/session/types';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const claude = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 // Helper to send SSE event
@@ -239,9 +239,12 @@ async function processStreamWithController(
       progress: 75,
     });
 
+    // Truncate knowledge context to avoid token limits (max 500 chars)
+    const truncatedContext = knowledgeContext ? knowledgeContext.substring(0, 500) : '';
+
     const systemPrompt = getPersonalizedSystemPrompt(
       updatedPersona,
-      knowledgeContext ? `\n## Context:\n${knowledgeContext}` : ''
+      truncatedContext ? `\nContext: ${truncatedContext}` : ''
     );
 
     let enhancedSystemPrompt = systemPrompt;
@@ -252,8 +255,11 @@ async function processStreamWithController(
       }
     }
 
+    // Limit conversation history to last 3 messages to avoid token limits
+    const recentHistory = conversationHistory.slice(-3);
+
     const messages = [
-      ...conversationHistory.map((msg: any) => ({
+      ...recentHistory.map((msg: any) => ({
         role: msg.message_role,
         content: msg.message_content,
       })),
@@ -265,17 +271,21 @@ async function processStreamWithController(
       ? knowledgeContext.split('\n').filter((l: string) => l.trim())
       : [];
 
-    // Run OpenAI and Claude in parallel for maximum speed!
+    // Run Claude for both text response and page generation in parallel!
     try {
-      const [openaiResult, pageGenResult] = await Promise.all([
-        // OpenAI text response
-        openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [{ role: 'system', content: enhancedSystemPrompt }, ...messages],
+      const [claudeTextResult, pageGenResult] = await Promise.all([
+        // Claude text response
+        claude.messages.create({
+          model: 'claude-sonnet-4-5-20250929',
+          max_tokens: 150,
           temperature: 0.7,
-          max_tokens: 150, // Reduced from 200 to avoid token limit issues
+          system: enhancedSystemPrompt,
+          messages: messages.map((m: any) => ({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content,
+          })),
         }).catch(error => {
-          console.error('OpenAI error:', error);
+          console.error('Claude text error:', error);
           return null;
         }),
         // Claude page generation
@@ -292,13 +302,14 @@ async function processStreamWithController(
         })
       ]);
 
-      // Process OpenAI result
-      if (openaiResult) {
-        aiResponse = openaiResult.choices[0].message.content || '';
+      // Process Claude text result
+      if (claudeTextResult) {
+        const textBlock = claudeTextResult.content.find((block: any) => block.type === 'text');
+        aiResponse = textBlock ? textBlock.text : 'Error generating response';
       } else {
         aiResponse = 'Error generating response';
       }
-      perfTime = perfLog('Parallel: OpenAI + Claude', perfTime);
+      perfTime = perfLog('Parallel: Claude text + page', perfTime);
 
       // Send text response
       sendEvent('text', {

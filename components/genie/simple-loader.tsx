@@ -49,13 +49,13 @@ export function SimpleLoader({ query, onComplete }: SimpleLoaderProps) {
       <div className="text-center space-y-4 animate-fade-in">
         {/* Blinking Dot */}
         <div className="flex items-center justify-center gap-2">
-          <div className="w-3 h-3 bg-[#00C8FF] rounded-full animate-blink" />
-          <div className="w-3 h-3 bg-[#00C8FF] rounded-full animate-blink" style={{ animationDelay: '0.2s' }} />
-          <div className="w-3 h-3 bg-[#00C8FF] rounded-full animate-blink" style={{ animationDelay: '0.4s' }} />
+          <div className="w-3 h-3 bg-[#06B6D4] rounded-full animate-blink" />
+          <div className="w-3 h-3 bg-[#06B6D4] rounded-full animate-blink" style={{ animationDelay: '0.2s' }} />
+          <div className="w-3 h-3 bg-[#06B6D4] rounded-full animate-blink" style={{ animationDelay: '0.4s' }} />
         </div>
 
         {/* Current Message - Blinking Text */}
-        <p className="text-[#00C8FF] text-2xl font-semibold animate-pulse">
+        <p className="text-[#06B6D4] text-2xl font-semibold animate-pulse">
           {messages[currentMessageIndex]}
         </p>
 

@@ -58,10 +58,10 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-[#0A1930] to-[#0D1B2E] text-white p-6 rounded-t-2xl">
+        <div className="sticky top-0 bg-gradient-to-r from-[#0A1628] to-[#0D1B2E] text-white p-6 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-[#00C8FF] rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-[#06B6D4] rounded-full flex items-center justify-center">
                 <User size={24} />
               </div>
               <div>
@@ -91,7 +91,7 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#00C8FF] text-white rounded-lg hover:bg-[#0598B8] transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[#06B6D4] text-white rounded-lg hover:bg-[#0598B8] transition-colors"
               >
                 <Edit2 size={16} />
                 <span>Edit Profile</span>
@@ -109,8 +109,8 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
 
           {/* Detection Vectors */}
           <div className="space-y-4">
-            <h3 className="text-lg font-bold text-[#0A1930] flex items-center gap-2">
-              <Briefcase size={20} className="text-[#00C8FF]" />
+            <h3 className="text-lg font-bold text-[#0A1628] flex items-center gap-2">
+              <Briefcase size={20} className="text-[#06B6D4]" />
               Detected Profile
             </h3>
 
@@ -128,7 +128,7 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
                 <select
                   value={editedPersona.functional_role}
                   onChange={(e) => setEditedPersona({ ...editedPersona, functional_role: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00C8FF] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#06B6D4] focus:border-transparent"
                 >
                   <option value="">Select your role</option>
                   <option value="sales">Sales</option>
@@ -158,7 +158,7 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
                 <select
                   value={editedPersona.org_type}
                   onChange={(e) => setEditedPersona({ ...editedPersona, org_type: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00C8FF] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#06B6D4] focus:border-transparent"
                 >
                   <option value="">Select organization type</option>
                   <option value="supplier">Supplier</option>
@@ -186,7 +186,7 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
                 <select
                   value={editedPersona.org_size}
                   onChange={(e) => setEditedPersona({ ...editedPersona, org_size: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00C8FF] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#06B6D4] focus:border-transparent"
                 >
                   <option value="">Select organization size</option>
                   <option value="small">Small (1-50 employees)</option>
@@ -216,7 +216,7 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
                   value={editedPersona.product_focus}
                   onChange={(e) => setEditedPersona({ ...editedPersona, product_focus: e.target.value })}
                   placeholder="e.g., beer, wine, spirits"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00C8FF] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#06B6D4] focus:border-transparent"
                 />
               ) : (
                 <p className="text-gray-900 font-medium capitalize">
@@ -229,8 +229,8 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
           {/* Pain Points */}
           {painPoints.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-[#0A1930] flex items-center gap-2">
-                <AlertCircle size={20} className="text-[#00C8FF]" />
+              <h3 className="text-lg font-bold text-[#0A1628] flex items-center gap-2">
+                <AlertCircle size={20} className="text-[#06B6D4]" />
                 Detected Pain Points
               </h3>
               <div className="space-y-2">
@@ -248,13 +248,13 @@ export function ProfileModal({ isOpen, onClose, persona, onUpdatePersona }: Prof
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 pt-4 border-t">
             <div className="text-center">
-              <p className="text-2xl font-bold text-[#00C8FF]">
+              <p className="text-2xl font-bold text-[#06B6D4]">
                 {persona?.total_interactions || 0}
               </p>
               <p className="text-sm text-gray-600">Total Interactions</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-[#00C8FF]">
+              <p className="text-2xl font-bold text-[#06B6D4]">
                 {persona?.overall_confidence || 0}%
               </p>
               <p className="text-sm text-gray-600">Overall Confidence</p>
